@@ -3,7 +3,9 @@ within each component, rather than forcing the building of the immstruct at the
 top. */
 
 var immstruct = require("immstruct")
+var Immutable = require("immutable")
 var createConstruct = require('./index').createConstruct;
+var nest = require('./index').nest;
 
 /* Imagine attaching this function to FriendListItem.construct,
    FriendListItem is a `component`. */
@@ -14,7 +16,7 @@ var FriendListItemState = createConstruct(function(name) {
       setTimeout(function() {
         // Does a 1 second lookup, simulating API access.
         resolve(this.state.routeParams.country)
-      }.bind(this), 1000)
+      }.bind(this), 250)
     }.bind(this)),
   }
 })
@@ -23,26 +25,30 @@ var FriendListItemState = createConstruct(function(name) {
    FriendList is a `component`.*/
 var FriendListState = createConstruct(function(names) {
   return {
-    friendListItemStates: Promise.all(names.map(
-        function(name, i) {
-          return FriendListItemState(this, ["friendListItemStates", i], name)
-        }.bind(this)))
+    friendListItemStates: this.many(FriendListItemState, 
+      ["friendListItemStates"], nest(names))
   };
 })
 
 /* Imagine attaching this function to App.construct,
    App is a `component`.*/
 var AppState = createConstruct(function() {
+  var names = ["John", "Shepard", "Liara"];
+  // Bind names to friendListState, the transformation determined by the 
+  // function.
+  this.bind(['names'], ['friendListState'], function(names) {
+    return this.one(FriendListState, ["friendListState"], names.deref())
+  });
   return {
-    friendListState: FriendListState(this, "friendListState", 
-      ["John", "Shepard", "Liara"])
+    names: names,
+    friendListState: this.one(FriendListState, ["friendListState"], names)
   }
 });
 
 var structure = immstruct({});
 
-structure.on('swap', function(a, b, path) {
-  console.log("swap at path:", path);
+structure.on('change', function(path, a, b) {
+  console.log("change at path:", path, a);
 })
 
 AppState({
@@ -54,17 +60,19 @@ AppState({
 }).then(function() {
   console.log("All promises complete. structure:")
   console.log(JSON.stringify(structure.cursor().deref(), null, " "));
+
+  structure.cursor(['names']).update(function() {
+    return Immutable.List(["Tom", "Mary", "Richard", "Jennifer"])
+  });
+
 });
 
 /* output:
-
-swap at path: [ 'friendListState', 'friendListItemStates', 0 ]
-swap at path: [ 'friendListState', 'friendListItemStates', 1 ]
-swap at path: [ 'friendListState', 'friendListItemStates', 2 ]
-swap at path: [ 'friendListState', 'friendListItemStates', 0 ]
-swap at path: [ 'friendListState', 'friendListItemStates', 1 ]
-swap at path: [ 'friendListState', 'friendListItemStates', 2 ]
-swap at path: [ 'friendListState' ]
+change at path: [] Map { "friendListState": Map { "friendListItemStates": Map { 0: Map { "firstName": "John" }, 1: Map { "firstName": "Shepard" }, 2: Map { "firstName": "Liara" } } }, "names": List [ "John", "Shepard", "Liara" ] }
+change at path: [ 'friendListState', 'friendListItemStates', 0 ] Map { "firstName": "John", "country": "Australia" }
+change at path: [ 'friendListState', 'friendListItemStates', 1 ] Map { "firstName": "Shepard", "country": "Australia" }
+change at path: [ 'friendListState', 'friendListItemStates', 2 ] Map { "firstName": "Liara", "country": "Australia" }
+change at path: [ 'friendListState' ] Map { "friendListItemStates": List [ Map { "firstName": "John", "country": "Australia" }, Map { "firstName": "Shepard", "country": "Australia" }, Map { "firstName": "Liara", "country": "Australia" } ] }
 All promises complete. structure:
 {
  "friendListState": {
@@ -82,7 +90,18 @@ All promises complete. structure:
     "country": "Australia"
    }
   ]
- }
+ },
+ "names": [
+  "John",
+  "Shepard",
+  "Liara"
+ ]
 }
+change at path: [ 'names' ] List [ "Tom", "Mary", "Richard", "Jennifer" ]
+change at path: [ 'friendListState', 'friendListItemStates', 0 ] Map { "firstName": "Tom", "country": "Australia" }
+change at path: [ 'friendListState', 'friendListItemStates', 1 ] Map { "firstName": "Mary", "country": "Australia" }
+change at path: [ 'friendListState', 'friendListItemStates', 2 ] Map { "firstName": "Richard", "country": "Australia" }
+change at path: [ 'friendListState', 'friendListItemStates', 3 ] Map { "firstName": "Jennifer", "country": "Australia" }
+change at path: [ 'friendListState' ] Map { "friendListItemStates": List [ Map { "firstName": "Tom", "country": "Australia" }, Map { "firstName": "Mary", "country": "Australia" }, Map { "firstName": "Richard", "country": "Australia" }, Map { "firstName": "Jennifer", "country": "Australia" } ] }
 */
 
