@@ -1,0 +1,17 @@
+{
+  "name": "immstruct-construct",
+  "version": "0.0.1",
+  "description": "Build omniscientjs immstructs from the bottom up.",
+  "main": "index.js",
+  "preferGlobal": false,
+  "keywords": [
+    "immstruct",
+    "omniscientjs"
+  ],
+  "author": "Eric Man",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "immstruct": "^1.4.0",
+    "immutable": "^3.7.1"
+  }
+}
